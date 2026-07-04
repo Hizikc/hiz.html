@@ -1,0 +1,22 @@
+{
+  "name": "mysite",
+  "version": "1.0.0",
+  "description": "",
+  "main": "vite.config.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hizsquad/hizsite.git"
+  },
+  "private": true,
+  "dependencies": {
+    "vite": "^8.1.3"
+  },
+  "devDependencies": {
+    "vite-plugin-html-inject": "^1.1.2"
+  }
+}

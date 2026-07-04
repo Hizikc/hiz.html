@@ -1,0 +1,85 @@
+/* Обнуление */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+    /* Вот эта магия запрещает кликать по тексту и вызывать курсор ввода */
+    user-select: none;
+    -webkit-user-select: none; /* Для Chrome и Safari */
+}
+
+
+body {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #0b0612; /* Твой темный фоновый цвет */
+    overflow: hidden;
+}
+
+/* Крестик в углу */
+.close-page-btn {
+    position: fixed;
+    top: 30px;
+    right: 40px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 28px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    z-index: 100;
+}
+
+.close-page-btn:hover {
+    color: #fff;
+    transform: rotate(90deg) scale(1.1);
+}
+
+/* Центральный контейнер */
+.message-container {
+    text-align: center;
+    color: #fff;
+    max-width: 90%;
+    animation: fadeIn 1s ease-out;
+}
+
+/* Главная надпись */
+.main-title {
+    font-size: 5rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+    background: linear-gradient(45deg, #b066ff, #7000ff); /* Фиолетовый градиент */
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 40px rgba(112, 0, 255, 0.3);
+}
+
+/* Подзаголовок */
+.sub-title {
+    font-size: 1.4rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.8);
+    letter-spacing: 0.5px;
+}
+
+/* Анимация появления */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Адаптив под мобилки */
+@media (max-width: 768px) {
+    .main-title { font-size: 3rem; }
+    .sub-title { font-size: 1.1rem; }
+    .close-page-btn { top: 20px; right: 25px; font-size: 24px; }
+}
