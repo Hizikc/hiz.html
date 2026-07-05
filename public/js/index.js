@@ -181,13 +181,13 @@ $(function(){
     function(){gsap.to($cursor,{scale:1,opacity:.6});}
   );
 });
+
 // ==========================================
-// НАСТРОЙКА ДОСТУПА (Редактируй этот список)
+// НАСТРОЙКА ДОСТУПА (И хэши, и обычный текст)
 // ==========================================
 const ALLOWED_USERS = [
-  { username: "hiz", passwordHash: "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b" }, // Твой основной безопасный хэш
-  { username: "guest", passwordHash: "12345" },                         // Временный пароль обычным текстом
-  { username: "test", passwordHash: "qwerty" }                          // Еще один простой пароль
+  { username: "hiz", passwordHash: "1" }, // Твой SHA-256 хэш
+  { username: "guest", passwordHash: "12345" }                          // Временный простой пароль
 ];
 
 // Элементы интерфейса
@@ -201,64 +201,80 @@ const togglePasswordBtn = document.getElementById('toggle-password-btn');
 const adminDashboard = document.getElementById('admin-dashboard');
 const logoutBtn = document.getElementById('logout-btn');
 
-// Функция для шифрования текста в SHA-256
-async function hashPassword(string) {
-  const utf8 = new TextEncoder().encode(string);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-// Показать панель управления
-function activateAdminMode() {
-  if (adminDashboard) {
-    adminDashboard.style.display = 'block';
-    document.body.prepend(adminDashboard);
-  }
-}
-
-// Закрыть окно авторизации и очистить поля
-function closeAuthModal() {
-  if (authModal) {
-    authModal.style.display = 'none';
-    loginInput.value = '';
-    passwordInput.value = '';
-  }
-}
-
-// НАДЕЖНАЯ ФУНКЦИЯ ШИФРОВАНИЯ SHA-256
+// Надежная функция шифрования SHA-256
 async function hashPassword(string) {
   const msgBuffer = new TextEncoder().encode(string);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  // Переводим байты в чистую шестнадцатеричную строку без сбоев
   return hashArray.map(b => ('00' + b.toString(16)).slice(-2)).join('');
 }
 
-// ФУНКЦИЯ АВТОРИЗАЦИИ (БЕЗ БАГОВ СРАВНЕНИЯ)
+// ОБНОВИ ЭТУ ФУНКЦИЮ:
+function activateAdminMode() {
+  if (adminDashboard) adminDashboard.style.display = 'block';
+  if (centerSearchContainer) {
+    centerSearchContainer.style.display = 'block';
+    if (centerSearchInput) centerSearchInput.value = '';
+  }
+
+  // Добавляем класс на весь документ — CSS сам скроет кнопку входа!
+  document.body.classList.add('admin-logged-in');
+}
+
+// НАЙДИ И ОБНОВИ ЭТОТ БЛОК (Кнопка Выйти):
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', () => {
+    localStorage.removeItem('is_admin');
+    if (adminDashboard) adminDashboard.style.display = 'none';
+    if (centerSearchContainer) centerSearchContainer.style.display = 'none';
+
+    // Убираем класс — кнопка входа сразу вернется на место
+    document.body.classList.remove('admin-logged-in');
+  });
+}
+
+// Закрыть окно авторизации и очистить поля ввода
+function closeAuthModal() {
+  if (authModal) {
+    authModal.style.display = 'none';
+    if (loginInput) loginInput.value = '';
+    if (passwordInput) passwordInput.value = '';
+  }
+}
+
+// Функция авторизации с поддержкой нескольких паролей
 async function handleAuth() {
+  if (!loginInput || !passwordInput) return;
+
   const enteredLogin = loginInput.value.trim().toLowerCase();
   const enteredPassword = passwordInput.value;
 
+  // Ищем пользователя в списке
   const user = ALLOWED_USERS.find(u => u.username.toLowerCase() === enteredLogin);
 
-  if (user) {
+  if (user && user.passwordHashes) {
     let isPasswordCorrect = false;
+    const enteredHash = await hashPassword(enteredPassword);
 
-    // Проверяем тип пароля в базе по длине строки (64 символа)
-    if (user.passwordHash.length === 64) {
-      const enteredHash = await hashPassword(enteredPassword);
-      // Сравниваем полученный хэш с тем, что записан в ALLOWED_USERS
-      if (user.passwordHash.trim().toLowerCase() === enteredHash.toLowerCase()) {
-        isPasswordCorrect = true;
+    // Перебираем все пароли, привязанные к этому пользователю
+    for (const savedPassword of user.passwordHashes) {
+      // Если это хэш (64 символа) — сравниваем захешированный ввод
+      if (savedPassword.length === 64) {
+        if (savedPassword.trim().toLowerCase() === enteredHash.toLowerCase()) {
+          isPasswordCorrect = true;
+          break; // Пароль подошел, выходим из цикла
+        }
       }
-    } else {
-      // Для обычного текста
-      if (user.passwordHash === enteredPassword) {
-        isPasswordCorrect = true;
+      // If это обычный текст — сравниваем напрямую
+      else {
+        if (savedPassword === enteredPassword) {
+          isPasswordCorrect = true;
+          break; // Пароль подошел, выходим из цикла
+        }
       }
     }
 
+    // Если хоть один пароль совпал — пускаем в админку
     if (isPasswordCorrect) {
       localStorage.setItem('is_admin', 'true');
       activateAdminMode();
@@ -272,10 +288,9 @@ async function handleAuth() {
 }
 
 
-
-
 // Проверка сессии при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
+  if (centerSearchInput) centerSearchInput.value = '';
   if (localStorage.getItem('is_admin') === 'true') {
     activateAdminMode();
   }
@@ -284,8 +299,10 @@ document.addEventListener('DOMContentLoaded', () => {
 // Открытие модалки
 if (loginBtn) {
   loginBtn.addEventListener('click', () => {
-    authModal.style.display = 'flex';
-    loginInput.focus(); // Сразу ставим фокус на поле ввода Ника
+    if (authModal) {
+      authModal.style.display = 'flex';
+      if (loginInput) loginInput.focus();
+    }
   });
 }
 
@@ -317,24 +334,54 @@ if (logoutBtn) {
   logoutBtn.addEventListener('click', () => {
     localStorage.removeItem('is_admin');
     if (adminDashboard) adminDashboard.style.display = 'none';
+    if (centerSearchContainer) centerSearchContainer.style.display = 'none';
+    if (loginBtn) loginBtn.style.display = 'block'; // Возвращаем замочек обратно
+  });
+}
+
+// Слушатели клавиатуры (Enter и Escape)
+document.addEventListener('keydown', (event) => {
+  if (authModal && authModal.style.display === 'flex') {
+    if (event.key === 'Enter') handleAuth();
+    if (event.key === 'Escape') closeAuthModal();
+  }
+});
+
+// Добавляем новую переменную для центрального поиска в начало админского блока
+const centerSearchContainer = document.getElementById('center-search-container');
+const centerSearchInput = document.getElementById('center-search-input');
+
+function activateAdminMode() {
+  if (adminDashboard) {
+    adminDashboard.style.display = 'block';
+  }
+  if (centerSearchContainer) {
+    centerSearchContainer.style.display = 'block';
+
+    // ИСПРАВЛЕНИЕ: Принудительно очищаем строку поиска при каждом показе админки
+    if (centerSearchInput) {
+      centerSearchInput.value = '';
+    }
+  }
+}
+
+
+// Модифицируем кнопку Выйти
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', () => {
+    localStorage.removeItem('is_admin');
+    if (adminDashboard) adminDashboard.style.display = 'none';
+    if (centerSearchContainer) centerSearchContainer.style.display = 'none'; // Прячем поиск
   });
 }
 
 // ==========================================
-// СЛУШАТЕЛИ КЛАВИАТУРЫ (Enter и Escape)
-// ==========================================
-document.addEventListener('keydown', (event) => {
-  // Проверяем, открыто ли вообще окно авторизации в данный момент
-  if (authModal && authModal.style.display === 'flex') {
-
-    // Если нажат Enter — запускаем вход
-    if (event.key === 'Enter') {
-      handleAuth();
-    }
-
-    // Если нажат Escape (Esc) — закрываем окно
-    if (event.key === 'Escape') {
-      closeAuthModal();
-    }
+// ЛОГИКА ЦЕНТРАЛЬНОГО -ПОИСКА
+document.addEventListener('DOMContentLoaded', () => {
+  if (centerSearchInput) {
+    centerSearchInput.value = '';
+  }
+  if (localStorage.getItem('is_admin') === 'true') {
+    activateAdminMode();
   }
 });

@@ -2731,3 +2731,7 @@ form button:hover{
         transition: all .4s ease;
     }
 }
+/* Если мы залогинены, скрываем кнопку входа */
+body.admin-logged-in #login-trigger-btn {
+    display: none !important;
+}
