@@ -6,7 +6,7 @@ export default defineConfig({
 
   build: {
     // Папка, куда Vite соберет готовый продакшн-сайт
-    outDir: 'dist',
+    outDir: 'docs',
     // Очищать папку dist перед каждой новой сборкой
     emptyOutDir: true,
   },
