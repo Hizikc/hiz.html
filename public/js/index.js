@@ -181,16 +181,25 @@ $(function(){
     function(){gsap.to($cursor,{scale:1,opacity:.6});}
   );
 });
-// Переменные для элементов интерфейса
+// ==========================================
+// НАСТРОЙКА ДОСТУПА (Редактируй этот список)
+// ==========================================
+const ALLOWED_USERS = [
+  { username: "hiz", passwordHash: "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b" }, // Твой основной безопасный хэш
+  { username: "guest", passwordHash: "12345" },                         // Временный пароль обычным текстом
+  { username: "test", passwordHash: "qwerty" }                          // Еще один простой пароль
+];
+
+// Элементы интерфейса
 const loginBtn = document.getElementById('login-trigger-btn');
 const authModal = document.getElementById('auth-modal');
 const authCloseBtn = document.getElementById('auth-close-btn');
 const authSubmitBtn = document.getElementById('auth-submit-btn');
+const loginInput = document.getElementById('admin-login-input');
 const passwordInput = document.getElementById('admin-password-input');
+const togglePasswordBtn = document.getElementById('toggle-password-btn');
 const adminDashboard = document.getElementById('admin-dashboard');
-
-// Твой захешированный пароль (SHA-256)
-const CORRECT_PASSWORD_HASH = "5c1ebdb2a83af49ece0071530d54794ad6b6b1ee0e12ea84736b48f1844fef6a";
+const logoutBtn = document.getElementById('logout-btn');
 
 // Функция для шифрования текста в SHA-256
 async function hashPassword(string) {
@@ -200,12 +209,70 @@ async function hashPassword(string) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Показать админку, если пароль верный
+// Показать панель управления
 function activateAdminMode() {
-  adminDashboard.style.display = 'block';
-  // Смещаем панель в самый верх страницы
-  document.body.prepend(adminDashboard);
+  if (adminDashboard) {
+    adminDashboard.style.display = 'block';
+    document.body.prepend(adminDashboard);
+  }
 }
+
+// Закрыть окно авторизации и очистить поля
+function closeAuthModal() {
+  if (authModal) {
+    authModal.style.display = 'none';
+    loginInput.value = '';
+    passwordInput.value = '';
+  }
+}
+
+// НАДЕЖНАЯ ФУНКЦИЯ ШИФРОВАНИЯ SHA-256
+async function hashPassword(string) {
+  const msgBuffer = new TextEncoder().encode(string);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  // Переводим байты в чистую шестнадцатеричную строку без сбоев
+  return hashArray.map(b => ('00' + b.toString(16)).slice(-2)).join('');
+}
+
+// ФУНКЦИЯ АВТОРИЗАЦИИ (БЕЗ БАГОВ СРАВНЕНИЯ)
+async function handleAuth() {
+  const enteredLogin = loginInput.value.trim().toLowerCase();
+  const enteredPassword = passwordInput.value;
+
+  const user = ALLOWED_USERS.find(u => u.username.toLowerCase() === enteredLogin);
+
+  if (user) {
+    let isPasswordCorrect = false;
+
+    // Проверяем тип пароля в базе по длине строки (64 символа)
+    if (user.passwordHash.length === 64) {
+      const enteredHash = await hashPassword(enteredPassword);
+      // Сравниваем полученный хэш с тем, что записан в ALLOWED_USERS
+      if (user.passwordHash.trim().toLowerCase() === enteredHash.toLowerCase()) {
+        isPasswordCorrect = true;
+      }
+    } else {
+      // Для обычного текста
+      if (user.passwordHash === enteredPassword) {
+        isPasswordCorrect = true;
+      }
+    }
+
+    if (isPasswordCorrect) {
+      localStorage.setItem('is_admin', 'true');
+      activateAdminMode();
+      closeAuthModal();
+      return;
+    }
+  }
+
+  alert('Неверный логин или ключ доступа!');
+  passwordInput.value = '';
+}
+
+
+
 
 // Проверка сессии при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
@@ -214,60 +281,60 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Открытие модального окна при клике на замочек
+// Открытие модалки
 if (loginBtn) {
   loginBtn.addEventListener('click', () => {
     authModal.style.display = 'flex';
-    passwordInput.focus();
+    loginInput.focus(); // Сразу ставим фокус на поле ввода Ника
   });
 }
 
-// Закрытие модального окна
+// Закрытие по кнопке Отмена
 if (authCloseBtn) {
-  authCloseBtn.addEventListener('click', () => {
-    authModal.style.display = 'none';
-    passwordInput.value = '';
-  });
+  authCloseBtn.addEventListener('click', closeAuthModal);
 }
 
-// Логика кнопки "Войти"
-if (authSubmitBtn) {
-  authSubmitBtn.addEventListener('click', async () => {
-    const enteredPassword = passwordInput.value;
-    const enteredHash = await hashPassword(enteredPassword);
-
-    if (enteredHash === CORRECT_PASSWORD_HASH) {
-      localStorage.setItem('is_admin', 'true');
-      activateAdminMode();
-      authModal.style.display = 'none';
-      passwordInput.value = '';
+// Глазок показать/скрыть пароль
+if (togglePasswordBtn && passwordInput) {
+  togglePasswordBtn.addEventListener('click', () => {
+    if (passwordInput.type === 'password') {
+      passwordInput.type = 'text';
+      togglePasswordBtn.textContent = '🙈';
     } else {
-      alert('Неверный ключ доступа!');
-      passwordInput.value = '';
+      passwordInput.type = 'password';
+      togglePasswordBtn.textContent = '👁️';
     }
   });
 }
 
-// Кнопка "Выйти" внутри админки
-const logoutBtn = document.getElementById('logout-btn');
+// Клик по кнопке Войти
+if (authSubmitBtn) {
+  authSubmitBtn.addEventListener('click', handleAuth);
+}
+
+// Кнопка Выйти
 if (logoutBtn) {
   logoutBtn.addEventListener('click', () => {
     localStorage.removeItem('is_admin');
-    adminDashboard.style.display = 'none';
+    if (adminDashboard) adminDashboard.style.display = 'none';
   });
 }
-// Логика для кнопки "Показать/Скрыть пароль"
-const togglePasswordBtn = document.getElementById('toggle-password-btn');
 
-if (togglePasswordBtn && passwordInput) {
-  togglePasswordBtn.addEventListener('click', () => {
-    // Проверяем текущий тип поля ввода
-    if (passwordInput.type === 'password') {
-      passwordInput.type = 'text';
-      togglePasswordBtn.textContent = '🙈'; // Меняем иконку на закрытые глаза
-    } else {
-      passwordInput.type = 'password';
-      togglePasswordBtn.textContent = '👁️'; // Возвращаем обычный глазок
+// ==========================================
+// СЛУШАТЕЛИ КЛАВИАТУРЫ (Enter и Escape)
+// ==========================================
+document.addEventListener('keydown', (event) => {
+  // Проверяем, открыто ли вообще окно авторизации в данный момент
+  if (authModal && authModal.style.display === 'flex') {
+
+    // Если нажат Enter — запускаем вход
+    if (event.key === 'Enter') {
+      handleAuth();
     }
-  });
-}
+
+    // Если нажат Escape (Esc) — закрываем окно
+    if (event.key === 'Escape') {
+      closeAuthModal();
+    }
+  }
+});
