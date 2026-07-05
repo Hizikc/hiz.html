@@ -186,7 +186,7 @@ $(function(){
 // НАСТРОЙКА ДОСТУПА (И хэши, и обычный текст)
 // ==========================================
 const ALLOWED_USERS = [
-  { username: "hiz", passwordHash: "1" }, // Твой SHA-256 хэш
+  { username: "hiz", passwordHash: "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b" }, // Твой SHA-256 хэш
   { username: "guest", passwordHash: "12345" }                          // Временный простой пароль
 ];
 
