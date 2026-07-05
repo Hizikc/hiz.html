@@ -181,3 +181,207 @@ $(function(){
     function(){gsap.to($cursor,{scale:1,opacity:.6});}
   );
 });
+
+// ==========================================
+// НАСТРОЙКА ДОСТУПА (И хэши, и обычный текст)
+// ==========================================
+const ALLOWED_USERS = [
+  { username: "hiz", passwordHash: "1" }, // Твой SHA-256 хэш
+  { username: "guest", passwordHash: "12345" }                          // Временный простой пароль
+];
+
+// Элементы интерфейса
+const loginBtn = document.getElementById('login-trigger-btn');
+const authModal = document.getElementById('auth-modal');
+const authCloseBtn = document.getElementById('auth-close-btn');
+const authSubmitBtn = document.getElementById('auth-submit-btn');
+const loginInput = document.getElementById('admin-login-input');
+const passwordInput = document.getElementById('admin-password-input');
+const togglePasswordBtn = document.getElementById('toggle-password-btn');
+const adminDashboard = document.getElementById('admin-dashboard');
+const logoutBtn = document.getElementById('logout-btn');
+
+// Надежная функция шифрования SHA-256
+async function hashPassword(string) {
+  const msgBuffer = new TextEncoder().encode(string);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => ('00' + b.toString(16)).slice(-2)).join('');
+}
+
+// ОБНОВИ ЭТУ ФУНКЦИЮ:
+function activateAdminMode() {
+  if (adminDashboard) adminDashboard.style.display = 'block';
+  if (centerSearchContainer) {
+    centerSearchContainer.style.display = 'block';
+    if (centerSearchInput) centerSearchInput.value = '';
+  }
+
+  // Добавляем класс на весь документ — CSS сам скроет кнопку входа!
+  document.body.classList.add('admin-logged-in');
+}
+
+// НАЙДИ И ОБНОВИ ЭТОТ БЛОК (Кнопка Выйти):
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', () => {
+    localStorage.removeItem('is_admin');
+    if (adminDashboard) adminDashboard.style.display = 'none';
+    if (centerSearchContainer) centerSearchContainer.style.display = 'none';
+
+    // Убираем класс — кнопка входа сразу вернется на место
+    document.body.classList.remove('admin-logged-in');
+  });
+}
+
+// Закрыть окно авторизации и очистить поля ввода
+function closeAuthModal() {
+  if (authModal) {
+    authModal.style.display = 'none';
+    if (loginInput) loginInput.value = '';
+    if (passwordInput) passwordInput.value = '';
+  }
+}
+
+// Функция авторизации с поддержкой нескольких паролей
+async function handleAuth() {
+  if (!loginInput || !passwordInput) return;
+
+  const enteredLogin = loginInput.value.trim().toLowerCase();
+  const enteredPassword = passwordInput.value;
+
+  // Ищем пользователя в списке
+  const user = ALLOWED_USERS.find(u => u.username.toLowerCase() === enteredLogin);
+
+  if (user && user.passwordHashes) {
+    let isPasswordCorrect = false;
+    const enteredHash = await hashPassword(enteredPassword);
+
+    // Перебираем все пароли, привязанные к этому пользователю
+    for (const savedPassword of user.passwordHashes) {
+      // Если это хэш (64 символа) — сравниваем захешированный ввод
+      if (savedPassword.length === 64) {
+        if (savedPassword.trim().toLowerCase() === enteredHash.toLowerCase()) {
+          isPasswordCorrect = true;
+          break; // Пароль подошел, выходим из цикла
+        }
+      }
+      // If это обычный текст — сравниваем напрямую
+      else {
+        if (savedPassword === enteredPassword) {
+          isPasswordCorrect = true;
+          break; // Пароль подошел, выходим из цикла
+        }
+      }
+    }
+
+    // Если хоть один пароль совпал — пускаем в админку
+    if (isPasswordCorrect) {
+      localStorage.setItem('is_admin', 'true');
+      activateAdminMode();
+      closeAuthModal();
+      return;
+    }
+  }
+
+  alert('Неверный логин или ключ доступа!');
+  passwordInput.value = '';
+}
+
+
+// Проверка сессии при загрузке страницы
+document.addEventListener('DOMContentLoaded', () => {
+  if (centerSearchInput) centerSearchInput.value = '';
+  if (localStorage.getItem('is_admin') === 'true') {
+    activateAdminMode();
+  }
+});
+
+// Открытие модалки
+if (loginBtn) {
+  loginBtn.addEventListener('click', () => {
+    if (authModal) {
+      authModal.style.display = 'flex';
+      if (loginInput) loginInput.focus();
+    }
+  });
+}
+
+// Закрытие по кнопке Отмена
+if (authCloseBtn) {
+  authCloseBtn.addEventListener('click', closeAuthModal);
+}
+
+// Глазок показать/скрыть пароль
+if (togglePasswordBtn && passwordInput) {
+  togglePasswordBtn.addEventListener('click', () => {
+    if (passwordInput.type === 'password') {
+      passwordInput.type = 'text';
+      togglePasswordBtn.textContent = '🙈';
+    } else {
+      passwordInput.type = 'password';
+      togglePasswordBtn.textContent = '👁️';
+    }
+  });
+}
+
+// Клик по кнопке Войти
+if (authSubmitBtn) {
+  authSubmitBtn.addEventListener('click', handleAuth);
+}
+
+// Кнопка Выйти
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', () => {
+    localStorage.removeItem('is_admin');
+    if (adminDashboard) adminDashboard.style.display = 'none';
+    if (centerSearchContainer) centerSearchContainer.style.display = 'none';
+    if (loginBtn) loginBtn.style.display = 'block'; // Возвращаем замочек обратно
+  });
+}
+
+// Слушатели клавиатуры (Enter и Escape)
+document.addEventListener('keydown', (event) => {
+  if (authModal && authModal.style.display === 'flex') {
+    if (event.key === 'Enter') handleAuth();
+    if (event.key === 'Escape') closeAuthModal();
+  }
+});
+
+// Добавляем новую переменную для центрального поиска в начало админского блока
+const centerSearchContainer = document.getElementById('center-search-container');
+const centerSearchInput = document.getElementById('center-search-input');
+
+function activateAdminMode() {
+  if (adminDashboard) {
+    adminDashboard.style.display = 'block';
+  }
+  if (centerSearchContainer) {
+    centerSearchContainer.style.display = 'block';
+
+    // ИСПРАВЛЕНИЕ: Принудительно очищаем строку поиска при каждом показе админки
+    if (centerSearchInput) {
+      centerSearchInput.value = '';
+    }
+  }
+}
+
+
+// Модифицируем кнопку Выйти
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', () => {
+    localStorage.removeItem('is_admin');
+    if (adminDashboard) adminDashboard.style.display = 'none';
+    if (centerSearchContainer) centerSearchContainer.style.display = 'none'; // Прячем поиск
+  });
+}
+
+// ==========================================
+// ЛОГИКА ЦЕНТРАЛЬНОГО -ПОИСКА
+document.addEventListener('DOMContentLoaded', () => {
+  if (centerSearchInput) {
+    centerSearchInput.value = '';
+  }
+  if (localStorage.getItem('is_admin') === 'true') {
+    activateAdminMode();
+  }
+});
